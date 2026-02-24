@@ -1,0 +1,31 @@
+# Virtual environment
+/venv/
+
+# Generated keys (sensitive — never commit)
+/keys/
+
+# Encrypted message output
+/message.txt
+
+# IDE / Editor
+.vscode/
+.idea/
+*.code-workspace
+
+# Environment files
+.env
+.env.example
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+
+# OS files
+Thumbs.db
+.DS_Store
