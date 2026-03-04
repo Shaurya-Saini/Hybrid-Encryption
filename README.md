@@ -14,34 +14,11 @@ Includes a **Shor's Algorithm attack demo** that breaks the RSA-only method by f
 
 ### Mode 1: RSA-Only (Classical) — Quantum Vulnerable
 
-```
-Sender:                              Receiver:
-  random AES key ──► RSA encrypt       RSA decrypt ──► AES session key
-         │                                    │
-  AES-GCM encrypt ──► ciphertext       AES-GCM decrypt ──► plaintext
-```
+## Architecture Diagram
 
-- Uses **small RSA keys (16-bit primes, ~32-bit modulus)** deliberately
-- Demonstrates why RSA-only key exchange is insecure against quantum computers
-- Vulnerable to Shor's algorithm factoring attack
-
-### Mode 2: Hybrid RSA + Kyber (Quantum-Safe) — Quantum Safe
-
-```
-Sender:                              Receiver:
-  random bytes ──► RSA encrypt         RSA decrypt ──► secret₁
-  Kyber encaps ──► PQ ciphertext       Kyber decaps ──► secret₂
-         │                                    │
-  combined = secret₁ ‖ secret₂        combined = secret₁ ‖ secret₂
-         │                                    │
-      KDF(combined) ──► session_key       KDF(combined) ──► session_key
-         │                                    │
-  AES-GCM encrypt ──► ciphertext       AES-GCM decrypt ──► plaintext
-```
-
-- Uses **RSA-2048 + Kyber-512** with KDF-based key combination
-- Even if RSA is broken by a quantum computer, Kyber keeps the key safe
-- User selects KDF: HKDF (fast), PBKDF2 (slow), or Scrypt (memory-hard)
+<p>
+  <img src="assets/diagram.png" alt="Architecture Diagram" width="40%"/>
+</p>
 
 ### Shor's Algorithm Attack Demo
 
