@@ -43,8 +43,11 @@ def create_message(data: dict, filepath: str = None) -> str:
         if isinstance(value, bytes):
             # Convert raw bytes → base64 string for JSON compatibility
             encoded_data[key] = base64.b64encode(value).decode("utf-8")
+        elif isinstance(value, int):
+            # Keep integer values as-is (e.g., session_key_length)
+            encoded_data[key] = value
         else:
-            # Keep non-bytes values (e.g., kdf_used string) as-is
+            # Keep string values as-is (e.g., kdf_used, encryption_mode, rsa_encrypted_key)
             encoded_data[key] = value
 
     # Write the JSON payload to file with readable indentation
@@ -74,11 +77,14 @@ def read_message(filepath: str = None) -> dict:
     with open(filepath, "r") as f:
         data = json.load(f)
 
-    # Decode base64 strings back to raw bytes for all fields except 'kdf_used'
+    # Fields that are plain strings or integers (not base64-encoded)
+    non_encoded_fields = {"kdf_used", "encryption_mode", "rsa_encrypted_key", "session_key_length"}
+
+    # Decode base64 strings back to raw bytes where appropriate
     decoded_data = {}
     for key, value in data.items():
-        if key == "kdf_used":
-            # KDF identifier is a plain string, not base64-encoded
+        if key in non_encoded_fields:
+            # Keep plain string/integer values as-is
             decoded_data[key] = value
         elif key == "salt" and value is None:
             # HKDF doesn't use a salt, so it may be None

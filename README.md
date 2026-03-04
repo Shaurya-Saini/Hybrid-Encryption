@@ -1,34 +1,31 @@
-# 🔐 Hybrid Post-Quantum Encryption System
+# HYBRID POST-QUANTUM ENCRYPTION
 
-A secure messaging system combining **classical RSA** and **post-quantum Kyber (CRYSTALS-Kyber)** cryptography with hybrid key derivation. Messages are encrypted using **AES-256-GCM** with session keys derived from both classical and quantum-resistant secrets.
+A secure messaging system demonstrating two encryption approaches:
 
-## Architecture
+1. **RSA-Only (Classical)** — RSA key exchange + AES-256-GCM encryption
+   - Vulnerable to quantum attacks (Shor's algorithm)
+2. **Hybrid RSA + Kyber (Quantum-Safe)** — Combines classical RSA and post-quantum Kyber via KDF
+   - Resistant to quantum decryption attacks
+
+Includes a **Shor's Algorithm attack demo** that breaks the RSA-only method by factoring the RSA key, recovering the AES session key, and decrypting the plaintext.
+
+
+## ENCTYPTION MODES
+
+### Mode 1: RSA-Only (Classical) — Quantum Vulnerable
 
 ```
-project/
-├── common/              # Core cryptographic primitives
-│   ├── rsa_utils.py     # RSA-2048 keygen, OAEP encrypt/decrypt
-│   ├── kyber_utils.py   # Kyber-512 KEM (keygen, encaps, decaps)
-│   └── aes_gcm.py       # AES-256-GCM authenticated encryption
-├── kdf/                 # Key Derivation Functions (3 implementations)
-│   ├── hkdf.py          # HKDF-SHA256 (RFC 5869)
-│   ├── pbkdf2.py        # PBKDF2-HMAC-SHA256 (100k iterations)
-│   └── scrypt_kdf.py    # Scrypt (n=16384, r=8, p=1)
-├── network/             # HTTP communication layer
-│   ├── receiver_server.py  # FastAPI server (GET /get_public_keys, POST /receive_message)
-│   └── sender_server.py    # HTTP client (requests library)
-├── storage/             # Persistence layer
-│   ├── key_store.py     # RSA keys (PEM) + Kyber keys (raw bytes)
-│   └── message_handler.py  # JSON message file (base64-encoded fields)
-├── ui/                  # Command-line interfaces
-│   ├── cli_sender.py    # Interactive sender: input → encrypt → send
-│   └── cli_receiver.py  # Decryption logic: receive → decrypt → display
-├── main_receiver.py     # Entry point: keygen + start FastAPI server
-├── main_sender.py       # Entry point: run sender CLI
-└── requirements.txt
+Sender:                              Receiver:
+  random AES key ──► RSA encrypt       RSA decrypt ──► AES session key
+         │                                    │
+  AES-GCM encrypt ──► ciphertext       AES-GCM decrypt ──► plaintext
 ```
 
-## Cryptographic Design
+- Uses **small RSA keys (16-bit primes, ~32-bit modulus)** deliberately
+- Demonstrates why RSA-only key exchange is insecure against quantum computers
+- Vulnerable to Shor's algorithm factoring attack
+
+### Mode 2: Hybrid RSA + Kyber (Quantum-Safe) — Quantum Safe
 
 ```
 Sender:                              Receiver:
@@ -42,20 +39,83 @@ Sender:                              Receiver:
   AES-GCM encrypt ──► ciphertext       AES-GCM decrypt ──► plaintext
 ```
 
+- Uses **RSA-2048 + Kyber-512** with KDF-based key combination
+- Even if RSA is broken by a quantum computer, Kyber keeps the key safe
+- User selects KDF: HKDF (fast), PBKDF2 (slow), or Scrypt (memory-hard)
+
+### Shor's Algorithm Attack Demo
+
+Demonstrates breaking the RSA-only encryption:
+
+1. Reads `message.txt` (RSA-only encrypted message)
+2. Loads RSA public key `(n, e)` from `keys/small_rsa_keys.json`
+3. Factors `n` using a classical simulation of Shor's algorithm
+4. Reconstructs private key `d` from the prime factors
+5. Decrypts the RSA-encrypted AES session key
+6. Decrypts AES-GCM ciphertext to recover the original plaintext
+
+> **Why not Qiskit?** Qiskit simulates quantum circuits on classical hardware using exponentially large state vectors (2^n entries for n qubits). For even a 32-bit modulus, the circuit would need ~64+ qubits — making Qiskit **slower** than direct classical factoring. Real speedup only exists on actual quantum hardware.
+
+## INDUSTRY STATUS
+Industry is currently in a transition phase toward post-quantum cryptography. Recent measurements show that around 8–9% of the top million websites already support hybrid post-quantum key exchange, while nearly 42% of the top 100 sites have implemented it. Thousands of enterprises and governments are running pilot deployments of lattice-based cryptography such as Kyber, and major cloud providers and browsers have begun integrating hybrid TLS mechanisms. These developments accelerated after the 2024 NIST standardization of Kyber (ML-KEM). My project reflects this real-world migration strategy by demonstrating hybrid encryption that combines classical RSA with Kyber using a key derivation function to ensure quantum-resilient key exchange.
+
+
+## ARCHITECTURE
+
+```
+project/
+├── common/                      # Core cryptographic primitives
+│   ├── rsa_utils.py             # RSA-2048 + small RSA (for Shor's demo)
+│   ├── kyber_utils.py           # Kyber-512 KEM (keygen, encaps, decaps)
+│   └── aes_gcm.py               # AES-256-GCM authenticated encryption
+├── kdf/                         # Key Derivation Functions (3 implementations)
+│   ├── hkdf.py                  # HKDF-SHA256 (RFC 5869)
+│   ├── pbkdf2.py                # PBKDF2-HMAC-SHA256 (100k iterations)
+│   └── scrypt_kdf.py            # Scrypt (n=16384, r=8, p=1)
+├── network/                     # HTTP communication layer
+│   ├── receiver_server.py       # FastAPI server (hybrid + RSA-only endpoints)
+│   └── sender_server.py         # HTTP client (requests library)
+├── storage/                     # Persistence layer
+│   ├── key_store.py             # RSA keys (PEM) + Kyber keys (raw bytes)
+│   └── message_handler.py       # JSON message file (base64-encoded fields)
+├── ui/                          # Command-line interfaces
+│   ├── cli_sender.py            # Hybrid sender: input → encrypt → send
+│   ├── cli_receiver.py          # Hybrid receiver: receive → decrypt → display
+│   ├── cli_rsa_only_sender.py   # RSA-only sender (small keys for demo)
+│   └── cli_rsa_only_receiver.py # RSA-only receiver
+├── attack/                      # Shor's algorithm attack demonstration
+│   └── shor_attack.py           # Classical Shor's simulation + Pollard's rho
+├── main_receiver.py             # Entry point: mode selection → keygen → server
+├── main_sender.py               # Entry point: mode selection → encrypt → send
+├── main_attack.py               # Entry point: Shor's attack on RSA-only message
+└── requirements.txt
+```
+
+
+## COMPONENT SUMMARY
+
 | Component | Algorithm | Purpose |
 |-----------|-----------|---------|
-| Classical KEM | RSA-2048 + OAEP-SHA256 | Encrypt a 32-byte random secret |
+| Classical KEM | RSA-2048 + OAEP-SHA256 | Encrypt a 32-byte random secret (hybrid mode) |
+| Small RSA | Raw RSA (~32-bit modulus) | Key exchange for Shor's demo (RSA-only mode) |
 | Post-Quantum KEM | Kyber-512 (CRYSTALS) | Encapsulate a 32-byte PQ shared secret |
 | Key Derivation | HKDF / PBKDF2 / Scrypt | Merge both secrets → 256-bit session key |
 | Encryption | AES-256-GCM | Authenticated encryption (confidentiality + integrity) |
+| Attack | Shor's + Pollard's rho | Factor RSA modulus to break RSA-only mode |
 
-### Why Hybrid?
+## KDF COMPARISION
 
-- **RSA alone** is vulnerable to future quantum attacks (Shor's algorithm)
-- **Kyber alone** is relatively new and may have undiscovered classical weaknesses
-- **Hybrid** = security of *both*: even if one is broken, the other still protects the key
+| KDF | Salt | Properties | Best For |
+|-----|------|-----------|----------|
+| **HKDF** | None | Fast, standard (RFC 5869) | High-entropy input (recommended) |
+| **PBKDF2** | 16 bytes | Slow (100k iterations), CPU-bound | Password stretching scenarios |
+| **Scrypt** | 16 bytes | Memory-hard (16 MB), CPU+RAM bound | Brute-force resistance |
 
-## Message Format (`message.txt`)
+> PBKDF2 and Scrypt salts are generated by the sender and included in the message JSON so the receiver can re-derive the same key.
+
+## MESSAGE FORMATS
+
+### Hybrid Mode (`message.txt`)
 
 ```json
 {
@@ -68,26 +128,30 @@ Sender:                              Receiver:
 }
 ```
 
-## KDF Comparison
+### RSA-Only Mode (`message.txt`)
 
-| KDF | Salt | Properties | Best For |
-|-----|------|-----------|----------|
-| **HKDF** | None | Fast, standard (RFC 5869) | High-entropy input (recommended) |
-| **PBKDF2** | 16 bytes | Slow (100k iterations), CPU-bound | Password stretching scenarios |
-| **Scrypt** | 16 bytes | Memory-hard (16 MB), CPU+RAM bound | Brute-force resistance |
+```json
+{
+  "ciphertext": "<base64>",
+  "nonce": "<base64>",
+  "rsa_encrypted_key": "<integer as string>",
+  "encryption_mode": "RSA_ONLY",
+  "session_key_length": 3
+}
+```
 
-> PBKDF2 and Scrypt salts are generated by the sender and included in the message JSON so the receiver can re-derive the same key.
+## API ENDPOINTS (Receiver Server)
 
-## API Endpoints (Receiver)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/get_public_keys` | Returns base64-encoded RSA (PEM) + Kyber public keys |
-| `POST` | `/receive_message` | Accepts encrypted message JSON, decrypts + displays |
+| Method | Endpoint | Mode | Description |
+|--------|----------|------|-------------|
+| `GET` | `/get_public_keys` | Hybrid | Returns base64-encoded RSA (PEM) + Kyber public keys |
+| `POST` | `/receive_message` | Hybrid | Accepts hybrid encrypted message, decrypts + displays |
+| `GET` | `/get_rsa_public_key` | RSA-Only | Returns small RSA public key (n, e) |
+| `POST` | `/receive_rsa_only_message` | RSA-Only | Accepts RSA-only encrypted message, decrypts + displays |
 
 ---
 
-## Setup & Run
+## SETUP & RUN
 
 ### Prerequisites
 
@@ -108,40 +172,76 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-### 3. Run the Receiver (Terminal 1)
+### 3. Run RSA-Only Mode (Quantum Vulnerable)
+
+**Terminal 1 — Receiver:**
 
 ```bash
 python main_receiver.py
+# Choose option 1 (RSA-Only)
 ```
 
-Output:
-```
-HYBRID ENCRYPTION — RECEIVER
-[Receiver] RSA keys generated ✅
-[Receiver] Kyber keys generated ✅
-[Receiver] Starting server on http://127.0.0.1:5001
-```
-
-### 4. Run the Sender (Terminal 2)
+**Terminal 2 — Sender:**
 
 ```bash
 python main_sender.py
+# Choose option 1 (RSA-Only)
+# Enter your message
 ```
 
-You'll be prompted to:
-1. Enter your plaintext message
-2. Select a KDF (1 = HKDF, 2 = PBKDF2, 3 = Scrypt)
+### 4. Run Hybrid Mode (Quantum Safe)
 
-The receiver terminal will display:
+**Terminal 1 — Receiver:**
+
+```bash
+python main_receiver.py
+# Choose option 2 (Hybrid RSA + Kyber)
 ```
-==================================================
-  Decrypted Message: Hello Shaurya
-==================================================
+
+**Terminal 2 — Sender:**
+
+```bash
+python main_sender.py
+# Choose option 2 (Hybrid RSA + Kyber)
+# Enter your message
+# Select KDF (1 = HKDF, 2 = PBKDF2, 3 = Scrypt)
+```
+
+### 5. Run Shor's Algorithm Attack
+
+After running RSA-Only mode (step 3), run the attack in any terminal:
+
+```bash
+python main_attack.py
+```
+
+Output shows step-by-step:
+```
+SHOR'S ALGORITHM ATTACK DEMONSTRATION
+─────────────────────────────────────────
+STEP 1: Loading encrypted message from message.txt
+STEP 2: Loading RSA public key
+STEP 3: Factoring n using Shor's Algorithm
+  [Shor] ✅ Non-trivial factor found
+STEP 4: Reconstructing RSA private key from factors
+STEP 5: Decrypting RSA-encrypted AES session key
+STEP 6: Decrypting AES-GCM ciphertext
+  🔓 RECOVERED PLAINTEXT: Hello Shaurya
 ```
 
 ---
 
-## Tech Stack
+## Why Hybrid?
+
+- **RSA alone** is vulnerable to future quantum attacks (Shor's algorithm can factor any RSA key)
+- **Kyber alone** is relatively new and may have undiscovered classical weaknesses
+- **Hybrid** = security of *both*: even if one is broken, the other still protects the key
+
+This project demonstrates the vulnerability of RSA-only key exchange and why post-quantum hybrid approaches are necessary for future-proof encryption.
+
+---
+
+## TECH STACK
 
 | Library | Version | Purpose |
 |---------|---------|---------|

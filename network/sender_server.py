@@ -79,3 +79,60 @@ def send_message(message_data: dict, receiver_url: str = "http://127.0.0.1:5001"
 
     # Return the receiver's JSON response (contains decryption confirmation)
     return response.json()
+
+
+def fetch_rsa_public_key(receiver_url: str = "http://127.0.0.1:5001") -> dict:
+    """Fetch the receiver's RSA-only public key via HTTP GET.
+
+    Used in RSA-only mode where Kyber keys are not needed.
+
+    Args:
+        receiver_url: Base URL of the receiver server (default: localhost:5001).
+
+    Returns:
+        dict: {"n": int (modulus), "e": int (public exponent)}
+
+    Raises:
+        requests.exceptions.ConnectionError: If receiver server is not running.
+    """
+    # Send GET request to the RSA-only public key endpoint
+    response = requests.get(f"{receiver_url}/get_rsa_public_key")
+
+    # Raise an exception if the HTTP status code indicates an error
+    response.raise_for_status()
+
+    # Parse the JSON response — keys are integers stored as strings
+    data = response.json()
+
+    return {
+        "n": int(data["n"]),  # RSA modulus as integer
+        "e": int(data["e"]),  # RSA public exponent as integer
+    }
+
+
+def send_rsa_only_message(message_data: dict, receiver_url: str = "http://127.0.0.1:5001") -> dict:
+    """Send the RSA-only encrypted message payload to the receiver via HTTP POST.
+
+    Args:
+        message_data: Dictionary containing RSA-only encrypted message fields
+                      (ciphertext, nonce, rsa_encrypted_key, encryption_mode, etc.)
+        receiver_url: Base URL of the receiver server (default: localhost:5001).
+
+    Returns:
+        dict: Response from the receiver (status + decrypted message confirmation).
+
+    Raises:
+        requests.exceptions.ConnectionError: If receiver server is not running.
+    """
+    # Send POST request with the RSA-only encrypted message as JSON body
+    response = requests.post(
+        f"{receiver_url}/receive_rsa_only_message",
+        json=message_data,  # Automatically serializes dict to JSON
+    )
+
+    # Raise an exception if the HTTP status code indicates an error
+    response.raise_for_status()
+
+    # Return the receiver's JSON response
+    return response.json()
+
