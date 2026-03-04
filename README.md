@@ -17,7 +17,7 @@ Includes a **Shor's Algorithm attack demo** that breaks the RSA-only method by f
 ## Architecture Diagram
 
 <p>
-  <img src="assets/diagram.png" alt="Architecture Diagram" width="40%"/>
+  <img src="assets/diagram.png" alt="Architecture Diagram" width="60%"/>
 </p>
 
 ### Shor's Algorithm Attack Demo
